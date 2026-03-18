@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDAMC | Login</title>
+
+<style>
+:root {
+  --primary-color: #2563eb;
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+body {
+  font-family: Arial;
+  background: var(--bg-gradient);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.login-card {
+  background:white;
+  padding:25px;
+  border-radius:10px;
+  width:350px;
+  text-align:center;
+}
+input, button {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+}
+button {
+  background:#2563eb;
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+button:disabled {
+  background:#94a3b8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="login-card">
+  <h2>HDAMC Login</h2>
+
+  <input type="text" id="empId" placeholder="Employee ID">
+  
+  <!-- 🔥 AUTO NAME FIELD -->
+  <input type="text" id="name" placeholder="Employee Name" readonly>
+
+  <input type="password" id="password" placeholder="Password">
+
+  <button id="loginBtn">Login</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import { 
+  getFirestore, 
+  doc, 
+  getDoc 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",
+  authDomain: "clinical-570e7.firebaseapp.com",
+  projectId: "clinical-570e7",
+  storageBucket: "clinical-570e7.firebasestorage.app",
+  messagingSenderId: "521811871855",
+  appId: "1:521811871855:web:02ec35c3fd299db6e2659a",
+  measurementId: "G-DBRPR7MXT4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const empIdInput = document.getElementById("empId");
+const nameInput = document.getElementById("name");
+const loginBtn = document.getElementById("loginBtn");
+
+
+// 🔥 AUTO FETCH NAME WHEN ID ENTERED
+empIdInput.addEventListener("blur", async () => {
+  const empId = empIdInput.value.trim();
+
+  if (!empId) return;
+
+  try {
+    const userRef = doc(db, "users", empId);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      nameInput.value = userSnap.data().name;
+    } else {
+      nameInput.value = "";
+      alert("User not found");
+    }
+
+  } catch (e) {
+    console.error(e);
+  }
+});
+
+
+// 🔐 LOGIN
+loginBtn.addEventListener("click", async () => {
+
+  const empId = empIdInput.value.trim();
+  const password = document.getElementById("password").value;
+
+  if (!empId || !password) {
+    alert("Enter Employee ID and Password");
+    return;
+  }
+
+  loginBtn.innerText = "Logging in...";
+  loginBtn.disabled = true;
+
+  try {
+    const userRef = doc(db, "users", empId);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      alert("User not found");
+      return;
+    }
+
+    const userData = userSnap.data();
+
+    if (userData.password !== password) {
+      alert("Wrong password");
+      return;
+    }
+
+    // ✅ STORE SESSION
+    localStorage.setItem("user", JSON.stringify({
+  empId: empId,
+  role: userData.role,
+  name: userData.name
+}));
+    window.location.href = "dashboard.html";
+
+  } catch (e) {
+    console.error(e);
+    alert("Error: " + e.message);
+  }
+
+  loginBtn.innerText = "Login";
+  loginBtn.disabled = false;
+});
+</script>
+
+</body>
+</html>

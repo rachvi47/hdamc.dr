@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Appointments Panel</title>
+<style>
+  /* ... [Your existing styles] ... */
+  *{ margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', sans-serif; }
+  body{ background:linear-gradient(135deg,#0f172a,#1e293b); min-height: 100vh; }
+  .container{ max-width:1150px; margin:40px auto; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.2); }
+  .header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  h2{ color:#0f172a; }
+  .back{ background:#3b82f6; color:white; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
+  table{ width:100%; border-collapse:collapse; border-radius:10px; overflow:hidden; }
+  th{ background:#3b82f6; color:white; }
+  th,td{ padding:12px; text-align:center; border-bottom:1px solid #eee; }
+  tr:hover{ background:#f1f5f9; }
+  .done{color:green;font-weight:bold;}
+  .pending{color:orange;font-weight:bold;}
+  button{ padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
+  .delete{background:#ef4444;color:white;}
+  .complete{background:#22c55e;color:white;}
+  .complete:disabled{ background:gray; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>Appointments</h2>
+    <button class="back" onclick="window.location.href='dashboard.html'">Dashboard</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Age</th> <th>Gender</th> <th>Phone</th>
+        <th>Service</th>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="data"></tbody>
+  </table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",
+  authDomain: "clinical-570e7.firebaseapp.com",
+  projectId: "clinical-570e7",
+  storageBucket: "clinical-570e7.appspot.com",
+  messagingSenderId: "521811871855",
+  appId: "1:521811871855:web:02ec35c3fd299db6e2659a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const user = JSON.parse(localStorage.getItem("user"));
+
+if (!user) {
+  alert("Login required");
+  window.location.href = "index.html";
+}
+
+const tableBody = document.getElementById("data");
+
+function canView(service) {
+  if (!service) return false;
+  let s = service.toLowerCase();
+  if (user.role === "admin") return true;
+  if (user.role === "dental") return s.includes("dental") || s.includes("general");
+  if (user.role === "medical") return s.includes("health") || s.includes("medical") || s.includes("general");
+  return false;
+}
+
+onSnapshot(collection(db, "appointments"), (snapshot) => {
+  tableBody.innerHTML = "";
+  let list = [];
+
+  snapshot.forEach((docSnap) => {
+    const d = docSnap.data();
+    if (!canView(d.service)) return;
+    list.push({ id: docSnap.id, ...d });
+  });
+
+  list.sort((a, b) => {
+    const aStatus = a.status === "completed" ? 1 : 0;
+    const bStatus = b.status === "completed" ? 1 : 0;
+    if (aStatus !== bStatus) return aStatus - bStatus;
+    return (a.time || "").localeCompare(b.time || "");
+  });
+
+  list.forEach((d) => {
+    const status = d.status || "pending";
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${d.name || "-"}</td>
+      <td>${d.age || "-"}</td> 
+      <td>${d.gender || "-"}</td>
+      <td>${d.phone || "-"}</td>
+      <td>${d.service || "-"}</td>
+      <td>${d.date || "-"}</td>
+      <td>${d.time || "-"}</td>
+      <td class="${status === "completed" ? "done" : "pending"}">
+        ${status === "completed" ? "Completed ✔" : "Pending"}
+      </td>
+      <td>
+        ${
+          user.role === "admin"
+            ? `<button class="delete">Delete</button>`
+            : (user.role === "dental" || user.role === "medical")
+            ? `<button class="complete" ${status === "completed" ? "disabled" : ""}>✔ Done</button>`
+            : "-"
+        }
+      </td>
+    `;
+
+    // Handle Delete
+    if (user.role === "admin") {
+      tr.querySelector(".delete").onclick = async () => {
+        if (confirm("Delete this appointment?")) await deleteDoc(doc(db, "appointments", d.id));
+      };
+    }
+
+    // Handle Complete
+    if (user.role === "dental" || user.role === "medical") {
+      const btn = tr.querySelector(".complete");
+      if (btn) {
+        btn.onclick = async () => {
+          await updateDoc(doc(db, "appointments", d.id), { status: "completed" });
+        };
+      }
+    }
+    tableBody.appendChild(tr);
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDAMC | Create Account</title>
+
+<style>
+:root {
+  --primary-color: #2563eb;
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+body {
+  font-family: Arial;
+  background: var(--bg-gradient);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.register-card {
+  background:white;
+  padding:25px;
+  border-radius:10px;
+  width:350px;
+  text-align:center;
+}
+input, select, button {
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+}
+button {
+  background:#2563eb;
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+button:disabled {
+  background:#94a3b8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="register-card">
+  <h2>Create Staff Account</h2>
+
+  <input type="text" id="name" placeholder="Employee Name">
+
+  <select id="role">
+    <option value="admin">Administrator</option>
+    <option value="medical">Medical Doctor</option>
+    <option value="dental">Dental Doctor</option>
+  </select>
+
+  <button id="regBtn">Create Employee</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  runTransaction 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",
+  authDomain: "clinical-570e7.firebaseapp.com",
+  projectId: "clinical-570e7",
+  storageBucket: "clinical-570e7.firebasestorage.app",
+  messagingSenderId: "521811871855",
+  appId: "1:521811871855:web:02ec35c3fd299db6e2659a",
+  measurementId: "G-DBRPR7MXT4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const regBtn = document.getElementById("regBtn");
+
+function formatId(num) {
+  return num.toString().padStart(6, '0');
+}
+
+regBtn.addEventListener("click", async () => {
+
+  const name = document.getElementById("name").value.trim();
+  const role = document.getElementById("role").value;
+
+  if (!name) {
+    alert("Enter employee name");
+    return;
+  }
+
+  regBtn.innerText = "Creating...";
+  regBtn.disabled = true;
+
+  try {
+
+    const newId = await runTransaction(db, async (transaction) => {
+      const counterRef = doc(db, "counters", "employee");
+      const counterDoc = await transaction.get(counterRef);
+
+      let currentId = 0;
+
+      if (!counterDoc.exists()) {
+        currentId = 1;
+        transaction.set(counterRef, { lastId: 1 });
+      } else {
+        currentId = counterDoc.data().lastId + 1;
+        transaction.update(counterRef, { lastId: currentId });
+      }
+
+      return currentId;
+    });
+
+    const empId = formatId(newId);
+
+    // 🔥 SAVE USER
+    await setDoc(doc(db, "users", empId), {
+      name: name,
+      empId: empId,
+      role: role,
+      password: "1234", // ✅ DEFAULT PASSWORD
+      createdAt: new Date().toISOString()
+    });
+
+    alert(`✅ Employee Created
+Name: ${name}
+ID: ${empId}
+Password: 1234`);
+
+    document.getElementById("name").value = "";
+
+  } catch (e) {
+    console.error(e);
+    alert("Error: " + e.message);
+  }
+
+  regBtn.innerText = "Create Employee";
+  regBtn.disabled = false;
+});
+</script>
+
+</body>
+</html>
