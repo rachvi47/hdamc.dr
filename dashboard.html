@@ -40,6 +40,30 @@
 </header>
 
 <main class="max-w-7xl mx-auto px-4 pb-12">
+    <div id="statusSection" class="mb-8 hidden">
+        <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Clinic Intake Management</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div id="dentalToggleCard" class="card p-5 border-l-4 border-blue-500 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Dental Clinic</h4>
+                        <p id="dentalStatusLabel" class="text-xs font-medium">Checking...</p>
+                    </div>
+                    <button id="dentalToggleBtn" onclick="toggleClinic('dental')" class="px-4 py-2 rounded-lg text-xs font-bold transition-all"></button>
+                </div>
+            </div>
+            <div id="medicalToggleCard" class="card p-5 border-l-4 border-green-500 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Medical Clinic</h4>
+                        <p id="medicalStatusLabel" class="text-xs font-medium">Checking...</p>
+                    </div>
+                    <button id="medicalToggleBtn" onclick="toggleClinic('medical')" class="px-4 py-2 rounded-lg text-xs font-bold transition-all"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="mb-8">
         <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Daily Clinical Overview</h2>
         <div id="statsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
@@ -81,7 +105,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
     const firebaseConfig = {    
@@ -116,10 +140,52 @@
 
     document.getElementById("userInfo").innerHTML = `<b>${user.name}</b> <span class="mx-2 text-slate-300">|</span> ${user.role}`;
     
+    // Role-based visibility for Admin buttons and Post box
     if(user.role === "admin") {
         document.getElementById("usersBtn").classList.remove('hidden');
         document.getElementById("adminPostBox").classList.remove('hidden');
     }
+
+    // --- CLINIC TOGGLE LOGIC ---
+    const statusSection = document.getElementById("statusSection");
+    if(user.role === "admin" || user.role === "dental" || user.role === "medical") {
+        statusSection.classList.remove('hidden');
+        if(user.role === "admin" || user.role === "dental") document.getElementById("dentalToggleCard").classList.remove('hidden');
+        if(user.role === "admin" || user.role === "medical") document.getElementById("medicalToggleCard").classList.remove('hidden');
+    }
+
+    // Listener for clinic status
+    onSnapshot(doc(db, "settings", "clinicStatus"), (snap) => {
+        const data = snap.exists() ? snap.data() : { dental: true, medical: true };
+        updateUI('dental', data.dental);
+        updateUI('medical', data.medical);
+    });
+
+    function updateUI(type, isOpen) {
+        const btn = document.getElementById(`${type}ToggleBtn`);
+        const label = document.getElementById(`${type}StatusLabel`);
+        if(!btn) return;
+
+        if(isOpen) {
+            btn.innerText = "CLOSE APPOINTMENTS";
+            btn.className = "bg-red-100 text-red-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-200 transition-all";
+            label.innerText = "● OPEN FOR BOOKING";
+            label.className = "text-xs font-bold text-green-500 uppercase tracking-tighter mt-1";
+        } else {
+            btn.innerText = "OPEN APPOINTMENTS";
+            btn.className = "bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-md shadow-green-100";
+            label.innerText = "● BOOKINGS STOPPED";
+            label.className = "text-xs font-bold text-red-500 uppercase tracking-tighter mt-1";
+        }
+    }
+
+    window.toggleClinic = async (type) => {
+        const docRef = doc(db, "settings", "clinicStatus");
+        const snap = await getDoc(docRef);
+        let current = snap.exists() ? snap.data() : { dental: true, medical: true };
+        current[type] = !current[type];
+        await setDoc(docRef, current);
+    };
 
     // STATS LOGIC
     const statsGrid = document.getElementById("statsGrid");
@@ -197,7 +263,7 @@
                 <div>
                     <p class="text-sm text-slate-700">${d.message}</p>
                     ${d.file ? `<a href="${d.file}" target="_blank" class="text-blue-600 text-xs mt-2 inline-flex items-center gap-1 font-bold">📎 View Attachment</a>` : ""}
-                    <p class="text-[10px] text-slate-400 mt-2 uppercase">${new Date(d.createdAt).toLocaleTimeString()}</p>
+                    <p class="text-[10px] text-slate-400 mt-2 uppercase">${new Date(d.createdAt).toLocaleTimeString()} by ${d.author || 'Staff'}</p>
                 </div>
                 ${user.role === 'admin' ? `<button class="text-slate-300 hover:text-red-500 delete-btn">✕</button>` : ""}
             `;
@@ -214,5 +280,6 @@
 </script>
 </body>
 </html>
+
 
   
