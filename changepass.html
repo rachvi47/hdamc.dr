@@ -1,154 +1,183 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Change Password - V-Tohnna IAM</title>
-
-<style>
-
-body{
-font-family:Arial;
-background:#f4f6f9;
-text-align:center;
-padding-top:100px;
-}
-
-.box{
-background:white;
-padding:30px;
-width:90%;
-max-width:320px;
-margin:auto;
-border-radius:8px;
-box-shadow:0 4px 10px rgba(0,0,0,0.2);
-}
-
-input{
-width:100%;
-padding:8px;
-margin:10px 0;
-border:1px solid #ccc;
-border-radius:4px;
-}
-
-button{
-padding:8px 15px;
-background:#007BFF;
-border:none;
-color:white;
-border-radius:4px;
-cursor:pointer;
-width:100%;
-}
-
-#msg{
-margin-top:10px;
-font-size:14px;
-color:#333;
-}
-
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDAMC | Secure Password Update</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .glass-card {
+            background: white;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+        }
+        input {
+            transition: all 0.2s;
+            border: 1.5px solid #e2e8f0;
+        }
+        input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+    </style>
 </head>
-
 <body>
 
-<div class="box">
+<div class="glass-card">
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-full mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-800">Security Settings</h2>
+        <p class="text-slate-500 text-sm">Update your practitioner credentials</p>
+    </div>
 
-<h2>Change Password</h2>
+    <div class="space-y-4">
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Current Password</label>
+            <input id="oldpass" type="password" class="w-full px-4 py-3 rounded-xl bg-slate-50 mt-1" placeholder="••••••••">
+        </div>
 
-<input id="oldpass" type="password" placeholder="Old Password">
+        <div class="h-px bg-slate-100 my-2"></div>
 
-<input id="newpass" type="password" placeholder="New Password">
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">New Password</label>
+            <input id="newpass" type="password" class="w-full px-4 py-3 rounded-xl bg-slate-50 mt-1" placeholder="••••••••">
+        </div>
 
-<input id="confirmpass" type="password" placeholder="Confirm New Password">
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Confirm New Password</label>
+            <input id="confirmpass" type="password" class="w-full px-4 py-3 rounded-xl bg-slate-50 mt-1" placeholder="••••••••">
+        </div>
 
-<button onclick="changePassword()">Update Password</button>
+        <button onclick="changePassword()" id="updateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-100 mt-4">
+            Update Credentials
+        </button>
 
-<p id="msg"></p>
+        <p id="msg" class="text-center text-sm font-medium h-5"></p>
 
-<br>
-
-<a href="dashboard.html">Back to Dashboard</a>
-
+        <div class="text-center mt-6">
+            <a href="dashboard.html" class="text-sm text-blue-600 font-semibold hover:underline flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Return to Dashboard
+            </a>
+        </div>
+    </div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",
-  authDomain: "clinical-570e7.firebaseapp.com",
-  projectId: "clinical-570e7",
-  storageBucket: "clinical-570e7.firebasestorage.app",
-  messagingSenderId: "521811871855",
-  appId: "1:521811871855:web:02ec35c3fd299db6e2659a",
-  measurementId: "G-DBRPR7MXT4"
+const firebaseConfig = {  
+  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",  
+  authDomain: "clinical-570e7.firebaseapp.com",  
+  projectId: "clinical-570e7",  
+  storageBucket: "clinical-570e7.firebasestorage.app",  
+  messagingSenderId: "521811871855",  
+  appId: "1:521811871855:web:02ec35c3fd299db6e2659a",  
+  measurementId: "G-DBRPR7MXT4"  
+};  
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// 🔐 SESSION GUARD
+const authData = JSON.parse(localStorage.getItem("hdamc_auth"));
+if(!authData) window.location.href = "index.html";
+
+window.changePassword = async function() {
+    const oldpass = document.getElementById("oldpass").value;
+    const newpass = document.getElementById("newpass").value;
+    const confirmpass = document.getElementById("confirmpass").value;
+    const msg = document.getElementById("msg");
+    const btn = document.getElementById("updateBtn");
+
+    if(!oldpass || !newpass || !confirmpass) {
+        showMsg("Please fill all fields", "text-red-500");
+        return;
+    }
+
+    if(newpass !== confirmpass) {
+        showMsg("Passwords do not match", "text-red-500");
+        return;
+    }
+
+    if(newpass.length < 6) {
+        showMsg("New password too short (min 6 chars)", "text-red-500");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+
+    try {
+        const userRef = doc(db, "users", authData.empId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            showMsg("User record not found", "text-red-500");
+            return;
+        }
+
+        const userData = userSnap.data();
+
+        // Check if old password matches database
+        if (userData.password !== oldpass) {
+            showMsg("Current password incorrect", "text-red-500");
+            btn.disabled = false;
+            btn.innerText = "Update Credentials";
+            return;
+        }
+
+        // Update to new password
+        await updateDoc(userRef, {
+            password: newpass
+        });
+
+        showMsg("Password updated successfully ✅", "text-green-600");
+        
+        // Clear fields
+        document.getElementById("oldpass").value = "";
+        document.getElementById("newpass").value = "";
+        document.getElementById("confirmpass").value = "";
+
+        setTimeout(() => {
+            window.location.href = "dashboard.html";
+        }, 2000);
+
+    } catch (e) {
+        showMsg("Error updating password", "text-red-500");
+        console.error(e);
+        btn.disabled = false;
+        btn.innerText = "Update Credentials";
+    }
 };
 
-const app = initializeApp(firebaseConfig)
-const db = getFirestore(app)
-
-window.changePassword = async function(){
-
-let oldpass = document.getElementById("oldpass").value
-let newpass = document.getElementById("newpass").value
-let confirmpass = document.getElementById("confirmpass").value
-let msg=document.getElementById("msg")
-
-let user = JSON.parse(localStorage.getItem("user"))
-
-if(!user){
-  msg.innerText="User not logged in"
-  return
-}
-
-let username = user.username
-
-if(newpass!==confirmpass){
-  msg.innerText="Passwords do not match"
-  return
-}
-
-const snapshot = await getDocs(collection(db,"users"))
-
-let userDoc=null
-let userData=null
-
-snapshot.forEach(docSnap=>{
-  let data=docSnap.data()
-  if(data.username===username){
-    userDoc=docSnap.id
-    userData=data
-  }
-})
-
-if(!userData){
-  msg.innerText="User not found"
-  return
-}
-
-if(userData.password!==oldpass){
-  msg.innerText="Old password incorrect"
-  return
-}
-
-await updateDoc(doc(db,"users",userDoc),{
-  password:newpass
-})
-
-msg.innerText="Password updated successfully ✅"
-
-document.getElementById("oldpass").value=""
-document.getElementById("newpass").value=""
-document.getElementById("confirmpass").value=""
+function showMsg(text, colorClass) {
+    const msg = document.getElementById("msg");
+    msg.innerText = text;
+    msg.className = `text-center text-sm font-medium h-5 ${colorClass}`;
 }
 </script>
 
 </body>
-
 </html>
