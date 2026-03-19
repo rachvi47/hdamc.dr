@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -88,173 +89,186 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk", 
-            authDomain: "clinical-570e7.firebaseapp.com",
-            projectId: "clinical-570e7"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk", 
+        authDomain: "clinical-570e7.firebaseapp.com",
+        projectId: "clinical-570e7"
+    };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-        const authUser = JSON.parse(localStorage.getItem("hdamc_auth"));
-        if(!authUser) window.location.href="login.html";
+    const authUser = JSON.parse(localStorage.getItem("hdamc_auth"));
+    if(!authUser) window.location.href="login.html";
 
-        const isAdmin = authUser.role === "admin";
-        document.getElementById("userDisplay").innerText = isAdmin ? `ADMIN: ${authUser.name}` : `DR. ${authUser.name} (${authUser.role.toUpperCase()})`;
+    const isAdmin = authUser.role === "admin";
+    document.getElementById("userDisplay").innerText = isAdmin ? `ADMIN: ${authUser.name}` : `DR. ${authUser.name} (${authUser.role.toUpperCase()})`;
 
-        let activeCase = null;
-        const listContainer = document.getElementById("list");
+    let activeCase = null;
+    const listContainer = document.getElementById("list");
 
-        // Unique Patient ID Generator (D0001 / M0001)
-        async function assignPatientId(docId, service) {
-            const prefix = service.toLowerCase().includes('dental') ? 'D' : 'M';
-            const counterRef = doc(db, "counters", prefix);
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const counterSnap = await transaction.get(counterRef);
-                    let newCount = 1;
-                    if (counterSnap.exists()) newCount = counterSnap.data().count + 1;
-                    transaction.set(counterRef, { count: newCount });
-                    transaction.update(doc(db, "appointments", docId), { patientSerialId: `${prefix}${String(newCount).padStart(4, '0')}` });
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        onSnapshot(query(collection(db, "appointments"), orderBy("date", "desc")), (snap) => {
-            listContainer.innerHTML = "";
-            let pendingCount = 0;
-
-            snap.forEach(docSnap => {
-                const data = docSnap.data();
-                const serviceType = (data.service || "").toLowerCase();
-                
-                // Visibility Rules:
-                // 1. Admin sees everything.
-                // 2. Doctor sees if in their dept OR if they were the "TransferredBy" doctor (their history).
-                // 3. Doctor sees if they are the current "AssignedTo" person.
-                let isAuthorized = isAdmin || 
-                    (data.assignedTo === authUser.empId) || 
-                    (data.transferredBy === authUser.empId) ||
-                    ( (!data.assignedTo) && (authUser.role === "dental" && serviceType.includes("dental")) ) ||
-                    ( (!data.assignedTo) && (authUser.role === "medical" && serviceType.includes("medical")) );
-
-                if(!isAuthorized) return;
-
-                // Edit Logic: Only the person currently assigned can click the button.
-                let canEdit = (data.assignedTo === authUser.empId) || (!data.assignedTo && !isAdmin && !isDone);
-                if (data.status === "completed") canEdit = false;
-
-                const isDone = data.status === "completed";
-                const wasHandedByMe = data.transferredBy === authUser.empId;
-                if(!isDone) pendingCount++;
-
-                if(!data.patientSerialId && !isDone) assignPatientId(docSnap.id, data.service);
-
-                const card = document.createElement("div");
-                card.className = `glass-card p-5 rounded-2xl flex flex-col justify-between ${canEdit ? 'active-card' : 'history-card'}`;
-
-                card.innerHTML = `
-                    <div>
-                        <div class="flex justify-between items-start mb-4">
-                            <span class="status-badge ${isDone ? 'bg-green-100 text-green-700' : (wasHandedByMe ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700')}">
-                                ${isDone ? 'Completed' : (wasHandedByMe ? 'Handed Over' : 'Active Queue')}
-                            </span>
-                            <span class="text-[10px] font-black text-slate-800 bg-white border px-2 py-1 rounded shadow-sm">${data.patientSerialId || 'PENDING'}</span>
-                        </div>
-
-                        <div class="mb-4">
-                            <h3 class="text-lg font-bold text-slate-800">${data.name || data.patientName}</h3>
-                            <p class="text-[10px] text-slate-500 font-bold uppercase">${data.gender || 'N/A'} • Age: ${data.age || 'N/A'} • ${data.phone || 'No Contact'}</p>
-                        </div>
-
-                        <div class="space-y-3">
-                            <p class="text-[9px] font-bold text-slate-400 uppercase">Doctor Note History</p>
-                            <div class="clinical-thread text-[11px] text-slate-600 italic">
-                                ${data.clinicalNotes ? data.clinicalNotes : 'Awaiting consultation...'}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 pt-4 border-t border-slate-100">
-                        ${isAdmin ? 
-                            `<div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-400">ADMIN VIEW</span><button onclick="confirmDelete('${docSnap.id}')" class="text-red-300 text-xs hover:text-red-500">Remove</button></div>` : 
-                            (canEdit ? 
-                                `<button onclick="openModal('${docSnap.id}', '${data.bookingId}', '${data.name}', '${data.patientSerialId}', '${data.clinicalNotes || ''}')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-xs hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all">OPEN CLINICAL CASE</button>` : 
-                                `<p class="text-center text-[10px] font-bold text-slate-400 py-3 bg-slate-200/50 rounded-xl uppercase tracking-widest">Locked (History Record)</p>`
-                            )
-                        }
-                    </div>
-                `;
-                listContainer.appendChild(card);
+    // Unique Patient ID Generator (D0001 / M0001)
+    async function assignPatientId(docId, service) {
+        const prefix = (service || "").toLowerCase().includes('dental') ? 'D' : 'M';
+        const counterRef = doc(db, "counters", prefix);
+        try {
+            await runTransaction(db, async (transaction) => {
+                const counterSnap = await transaction.get(counterRef);
+                let newCount = 1;
+                if (counterSnap.exists()) newCount = counterSnap.data().count + 1;
+                transaction.set(counterRef, { count: newCount });
+                transaction.update(doc(db, "appointments", docId), { patientSerialId: `${prefix}${String(newCount).padStart(4, '0')}` });
             });
-            document.getElementById("queueCounter").innerText = `${pendingCount} Cases Total`;
+        } catch (e) { console.error("ID Generation Error:", e); }
+    }
+
+    onSnapshot(query(collection(db, "appointments"), orderBy("date", "desc")), (snap) => {
+        listContainer.innerHTML = "";
+        let pendingCount = 0;
+
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            const serviceType = (data.service || "").toLowerCase();
+            const userRole = (authUser.role || "").toLowerCase();
+            const isDone = data.status === "completed";
+            const wasHandedByMe = data.transferredBy === authUser.empId;
+
+            // --- IMPROVED VISIBILITY LOGIC ---
+            const isDentalCase = serviceType.includes("dental");
+            const isMedicalCase = !isDentalCase; // Catch-all for medical/general cases
+
+            let isAuthorized = isAdmin || 
+                (data.assignedTo === authUser.empId) || 
+                (data.transferredBy === authUser.empId);
+
+            // If not directly assigned, check if it belongs in the department's general queue
+            if (!isAuthorized && !data.assignedTo) {
+                if (userRole === "dental" && isDentalCase) isAuthorized = true;
+                if (userRole === "medical" && isMedicalCase) isAuthorized = true;
+            }
+
+            if(!isAuthorized) return; 
+
+            // Edit Logic: Only the person currently assigned (or the dept queue) can click
+            let canEdit = (data.assignedTo === authUser.empId) || (!data.assignedTo && !isAdmin && !isDone);
+            if (isDone) {
+                canEdit = false;
+            } else {
+                pendingCount++;
+            }
+
+            // Generate ID if missing and not completed
+            if(!data.patientSerialId && !isDone) assignPatientId(docSnap.id, data.service);
+
+            const card = document.createElement("div");
+            card.className = `glass-card p-5 rounded-2xl flex flex-col justify-between ${canEdit ? 'active-card' : 'history-card'}`;
+
+            card.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="status-badge ${isDone ? 'bg-green-100 text-green-700' : (wasHandedByMe ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700')}">
+                            ${isDone ? 'Completed' : (wasHandedByMe ? 'Handed Over' : 'Active Queue')}
+                        </span>
+                        <span class="text-[10px] font-black text-slate-800 bg-white border px-2 py-1 rounded shadow-sm">${data.patientSerialId || 'PENDING'}</span>
+                    </div>
+
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-slate-800">${data.name || data.patientName}</h3>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase">${data.gender || 'N/A'} • Age: ${data.age || 'N/A'} • ${data.phone || 'No Contact'}</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Doctor Note History</p>
+                        <div class="clinical-thread text-[11px] text-slate-600 italic">
+                            ${data.clinicalNotes ? data.clinicalNotes : 'Awaiting consultation...'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-100">
+                    ${isAdmin ? 
+                        `<div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-400">ADMIN VIEW</span><button onclick="confirmDelete('${docSnap.id}')" class="text-red-300 text-xs hover:text-red-500">Remove</button></div>` : 
+                        (canEdit ? 
+                            `<button onclick="openModal('${docSnap.id}', '${data.bookingId}', '${data.name}', '${data.patientSerialId}', '${data.clinicalNotes || ''}')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-xs hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all">OPEN CLINICAL CASE</button>` : 
+                            `<p class="text-center text-[10px] font-bold text-slate-400 py-3 bg-slate-200/50 rounded-xl uppercase tracking-widest">Locked (History Record)</p>`
+                        )
+                    }
+                </div>
+            `;
+            listContainer.appendChild(card);
         });
+        document.getElementById("queueCounter").innerText = `${pendingCount} Cases Total`;
+    });
 
-        window.openModal = (id, otp, name, serialId, prevNotes) => {
-            activeCase = { id, otp, name, serialId, prevNotes };
-            document.getElementById("modal").classList.remove("hidden");
-            document.getElementById("modalPatientName").innerText = name;
-            document.getElementById("modalPatientID").innerText = serialId;
-            const prevContainer = document.getElementById("previousNotesContainer");
-            if(prevNotes) {
-                prevContainer.classList.remove("hidden");
-                document.getElementById("prevNotesText").innerText = prevNotes;
-            } else { prevContainer.classList.add("hidden"); }
-        };
+    window.openModal = (id, otp, name, serialId, prevNotes) => {
+        activeCase = { id, otp, name, serialId, prevNotes };
+        document.getElementById("modal").classList.remove("hidden");
+        document.getElementById("modalPatientName").innerText = name;
+        document.getElementById("modalPatientID").innerText = serialId;
+        const prevContainer = document.getElementById("previousNotesContainer");
+        if(prevNotes) {
+            prevContainer.classList.remove("hidden");
+            document.getElementById("prevNotesText").innerText = prevNotes;
+        } else { prevContainer.classList.add("hidden"); }
+    };
 
-        window.closeModal = () => {
-            document.getElementById("modal").classList.add("hidden");
-            ["otp", "docId", "patientCondition", "targetDocId"].forEach(id => document.getElementById(id).value = "");
-        };
+    window.closeModal = () => {
+        document.getElementById("modal").classList.add("hidden");
+        ["otp", "docId", "patientCondition", "targetDocId"].forEach(id => document.getElementById(id).value = "");
+    };
 
-        window.toggleActionFields = () => {
-            document.getElementById("transferField").classList.toggle("hidden", document.getElementById("actionType").value !== "transfer");
-        };
+    window.toggleActionFields = () => {
+        document.getElementById("transferField").classList.toggle("hidden", document.getElementById("actionType").value !== "transfer");
+    };
 
-        window.processClinicalAction = async () => {
-            const action = document.getElementById("actionType").value;
-            const newNote = document.getElementById("patientCondition").value;
-            const enteredOtp = document.getElementById("otp").value;
-            const enteredId = document.getElementById("docId").value;
-            const btn = document.getElementById("confirmBtn");
+    window.processClinicalAction = async () => {
+        const action = document.getElementById("actionType").value;
+        const newNote = document.getElementById("patientCondition").value;
+        const enteredOtp = document.getElementById("otp").value;
+        const enteredId = document.getElementById("docId").value;
+        const btn = document.getElementById("confirmBtn");
 
-            if(!newNote.trim()) return alert("⚠️ Please enter treatment notes.");
-            if(enteredOtp !== activeCase.otp) return alert("❌ OTP Mismatch.");
-            if(enteredId !== authUser.empId) return alert("❌ Employee PIN Error.");
+        if(!newNote.trim()) return alert("⚠️ Please enter treatment notes.");
+        if(enteredOtp !== activeCase.otp) return alert("❌ OTP Mismatch.");
+        if(enteredId !== authUser.empId) return alert("❌ Employee PIN Error.");
 
-            try {
-                btn.innerText = "Saving Clinical Data...";
-                btn.disabled = true;
-                const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                const formattedEntry = `[${timestamp} | Dr. ${authUser.name}]: ${newNote}`;
-                const fullClinicalRecord = activeCase.prevNotes ? `${activeCase.prevNotes}\n${formattedEntry}` : formattedEntry;
+        try {
+            btn.innerText = "Saving Clinical Data...";
+            btn.disabled = true;
+            const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const formattedEntry = `[${timestamp} | Dr. ${authUser.name}]: ${newNote}`;
+            const fullClinicalRecord = activeCase.prevNotes ? `${activeCase.prevNotes}\n${formattedEntry}` : formattedEntry;
 
-                let updateData = { clinicalNotes: fullClinicalRecord, lastUpdatedBy: authUser.name, updatedAt: new Date().toISOString() };
+            let updateData = { 
+                clinicalNotes: fullClinicalRecord, 
+                lastUpdatedBy: authUser.name, 
+                updatedAt: new Date().toISOString() 
+            };
 
-                if (action === "complete") {
-                    updateData.status = "completed";
-                    updateData.doctorName = authUser.name;
-                    updateData.doctorId = authUser.empId;
-                    updateData.assignedTo = null;
-                } else if (action === "transfer") {
-                    const targetId = document.getElementById("targetDocId").value;
-                    if(!targetId.trim()) throw new Error("Target Doctor ID Required.");
-                    updateData.status = "transferred";
-                    updateData.assignedTo = targetId.trim();
-                    updateData.transferredBy = authUser.empId;
-                }
-                await updateDoc(doc(db, "appointments", activeCase.id), updateData);
-                closeModal();
-            } catch (err) { alert(err.message); } 
-            finally { btn.innerText = "Process Case"; btn.disabled = false; }
-        };
+            if (action === "complete") {
+                updateData.status = "completed";
+                updateData.doctorName = authUser.name;
+                updateData.doctorId = authUser.empId;
+                updateData.assignedTo = null;
+            } else if (action === "transfer") {
+                const targetId = document.getElementById("targetDocId").value;
+                if(!targetId.trim()) throw new Error("Target Doctor ID Required.");
+                updateData.status = "transferred";
+                updateData.assignedTo = targetId.trim();
+                updateData.transferredBy = authUser.empId;
+            }
+            await updateDoc(doc(db, "appointments", activeCase.id), updateData);
+            closeModal();
+        } catch (err) { alert(err.message); } 
+        finally { btn.innerText = "Process Case"; btn.disabled = false; }
+    };
 
-        window.confirmDelete = (id) => { if(confirm("Permanently delete?")) deleteDoc(doc(db, "appointments", id)); };
-    </script>
+    window.confirmDelete = (id) => { if(confirm("Permanently delete?")) deleteDoc(doc(db, "appointments", id)); };
+</script>
+
 </body>
 </html>
 
