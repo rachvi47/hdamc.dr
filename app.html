@@ -3,107 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HDAMC | Professional Clinical Queue</title>
+    <title>HDAMC | Clinical Transfer & History Audit</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
-        .glass-card { background: white; border: 1px solid #e2e8f0; transition: all 0.2s; }
-        .glass-card:hover { border-color: #3b82f6; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
-        .status-badge { padding: 4px 12px; border-radius: 99px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; }
+        .glass-card { background: white; border: 1px solid #e2e8f0; transition: all 0.2s ease; }
+        .history-card { background: #f8fafc; border-left: 4px solid #cbd5e1; opacity: 0.85; }
+        .active-card { border-left: 4px solid #3b82f6; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .status-badge { padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+        .clinical-thread { border-left: 2px dashed #3b82f6; padding-left: 10px; margin-top: 10px; }
     </style>
 </head>
 <body class="antialiased">
 
     <header class="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <div>
-                <h1 class="text-xl font-bold text-slate-900 tracking-tight">Clinical Management</h1>
-                <p class="text-[10px] text-blue-600 uppercase font-bold tracking-widest" id="userDisplay">Loading Profile...</p>
+                <h1 class="text-xl font-bold text-slate-900 tracking-tight">Clinical Portal</h1>
+                <p class="text-[10px] text-blue-600 uppercase font-extrabold tracking-widest" id="userDisplay">Authenticating...</p>
             </div>
-            <button onclick="location.href='dashboard.html'" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all">
-                ← Dashboard
-            </button>
+            <button onclick="location.href='dashboard.html'" class="bg-slate-900 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-lg">← Dashboard</button>
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto p-4 md:p-6">
-        <div class="mb-8">
-            <h2 id="queueCounter" class="text-3xl font-extrabold text-slate-800">...</h2>
-            <p class="text-slate-500">Real-time patient flow and clinical transfers</p>
+    <main class="max-w-7xl mx-auto p-4 md:p-6">
+        <div class="mb-8 flex justify-between items-end">
+            <div>
+                <h2 id="queueCounter" class="text-3xl font-black text-slate-800 tracking-tighter">...</h2>
+                <p class="text-slate-500 font-medium italic text-sm">Reviewing both Active Queue and Handover History</p>
+            </div>
         </div>
 
         <div id="list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div class="h-48 bg-slate-200 animate-pulse rounded-2xl"></div>
-            <div class="h-48 bg-slate-200 animate-pulse rounded-2xl"></div>
+            <div class="h-64 bg-slate-200 animate-pulse rounded-2xl"></div>
         </div>
     </main>
 
     <div id="modal" class="fixed inset-0 bg-slate-900/60 hidden backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
-            <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200">
+            <div class="p-6 border-b border-slate-100 bg-slate-50">
                 <div class="flex justify-between items-center">
-                    <h2 class="text-xl font-bold text-slate-800">Clinical Action Suite</h2>
-                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+                    <h2 class="text-lg font-bold text-slate-800">Consultation Action</h2>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-red-500 text-2xl leading-none">×</button>
                 </div>
-                <p class="text-sm mt-1">Patient: <span id="modalPatientName" class="font-bold text-blue-600"></span></p>
+                <p class="text-xs mt-1 text-blue-600 font-bold">Patient: <span id="modalPatientName"></span> | <span id="modalPatientID"></span></p>
             </div>
 
-            <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+                <div id="previousNotesContainer" class="hidden p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                    <p class="text-[10px] font-bold text-blue-700 uppercase mb-2 italic">Previous Doctor's Findings:</p>
+                    <div id="prevNotesText" class="text-xs text-blue-900 leading-relaxed whitespace-pre-line"></div>
+                </div>
+
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wider">Select Procedure</label>
-                    <select id="actionType" onchange="toggleActionFields()" class="w-full border border-slate-200 p-3 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
-                        <option value="complete">✅ Complete Consultation</option>
-                        <option value="transfer">🔄 Refer / Carry Forward</option>
-                        <option value="reschedule">📅 Reschedule Appointment</option>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Update Clinical Status</label>
+                    <select id="actionType" onchange="toggleActionFields()" class="w-full border-2 border-slate-100 p-3 rounded-xl bg-white focus:border-blue-500 outline-none font-semibold text-sm">
+                        <option value="complete">✅ Finalize & Close Case</option>
+                        <option value="transfer">🔄 Carry Forward to Colleague</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Clinical Notes / Findings</label>
-                    <textarea id="patientCondition" rows="3" placeholder="Enter diagnosis or reason for referral..." class="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"></textarea>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-widest">New Clinical Entry</label>
+                    <textarea id="patientCondition" rows="3" placeholder="Append treatment details..." class="w-full border-2 border-slate-100 p-3 rounded-xl focus:border-blue-500 outline-none text-sm"></textarea>
                 </div>
 
-                <div id="transferField" class="hidden space-y-2 p-4 bg-orange-50 rounded-xl border border-orange-100">
-                    <label class="block text-[10px] font-bold text-orange-700 uppercase tracking-wider">Target Employee ID</label>
-                    <input id="targetDocId" type="text" placeholder="Enter Employee ID" class="w-full border-orange-200 border p-3 rounded-lg outline-none text-sm">
+                <div id="transferField" class="hidden p-4 bg-orange-50 rounded-xl border border-orange-100">
+                    <label class="block text-[10px] font-bold text-orange-700 uppercase">Target Doctor Emp ID</label>
+                    <input id="targetDocId" type="text" placeholder="EMP ID" class="w-full border-orange-200 border p-3 rounded-lg outline-none text-sm font-bold">
                 </div>
 
-                <div id="rescheduleField" class="hidden grid grid-cols-2 gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100">
-                    <div>
-                        <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider">New Date</label>
-                        <input id="newDate" type="date" class="w-full border-blue-200 border p-2 rounded-lg text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider">New Time</label>
-                        <input id="newTime" type="time" class="w-full border-blue-200 border p-2 rounded-lg text-sm">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Patient OTP</label>
-                        <input id="otp" type="text" placeholder="OTP" class="w-full border border-slate-200 p-3 rounded-xl text-center font-bold tracking-widest outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Auth PIN (ID)</label>
-                        <input id="docId" type="password" placeholder="Verify ID" class="w-full border border-slate-200 p-3 rounded-xl text-center outline-none">
-                    </div>
+                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                    <input id="otp" type="text" placeholder="Patient OTP" class="border-2 border-slate-100 p-3 rounded-xl text-center font-bold outline-none text-sm">
+                    <input id="docId" type="password" placeholder="Doctor ID/PIN" class="border-2 border-slate-100 p-3 rounded-xl text-center outline-none text-sm">
                 </div>
             </div>
 
             <div class="bg-slate-50 p-4 flex gap-3">
-                <button onclick="closeModal()" class="flex-1 px-4 py-3 text-slate-500 font-bold text-sm uppercase">Cancel</button>
-                <button id="confirmBtn" onclick="processClinicalAction()" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all text-sm uppercase">Process Action</button>
+                <button onclick="closeModal()" class="flex-1 px-4 py-3 text-slate-500 font-bold text-xs uppercase">Dismiss</button>
+                <button id="confirmBtn" onclick="processClinicalAction()" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 text-xs uppercase">Process Case</button>
             </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk", 
@@ -117,15 +103,28 @@
         const authUser = JSON.parse(localStorage.getItem("hdamc_auth"));
         if(!authUser) window.location.href="login.html";
 
-        // Logic: Admin gets "Administrator", others get "Dr. Name"
-        const displayName = authUser.role === "admin" ? `SYSTEM ADMINISTRATOR || ${authUser.name}` : `MEDICAL STAFF || Dr. ${authUser.name}`;
-        document.getElementById("userDisplay").innerText = displayName;
+        const isAdmin = authUser.role === "admin";
+        document.getElementById("userDisplay").innerText = isAdmin ? `ADMIN: ${authUser.name}` : `DR. ${authUser.name} (${authUser.role.toUpperCase()})`;
 
         let activeCase = null;
         const listContainer = document.getElementById("list");
 
-        const q = query(collection(db, "appointments"), orderBy("date", "desc"));
-        onSnapshot(q, (snap) => {
+        // Unique Patient ID Generator (D0001 / M0001)
+        async function assignPatientId(docId, service) {
+            const prefix = service.toLowerCase().includes('dental') ? 'D' : 'M';
+            const counterRef = doc(db, "counters", prefix);
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const counterSnap = await transaction.get(counterRef);
+                    let newCount = 1;
+                    if (counterSnap.exists()) newCount = counterSnap.data().count + 1;
+                    transaction.set(counterRef, { count: newCount });
+                    transaction.update(doc(db, "appointments", docId), { patientSerialId: `${prefix}${String(newCount).padStart(4, '0')}` });
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        onSnapshot(query(collection(db, "appointments"), orderBy("date", "desc")), (snap) => {
             listContainer.innerHTML = "";
             let pendingCount = 0;
 
@@ -133,129 +132,130 @@
                 const data = docSnap.data();
                 const serviceType = (data.service || "").toLowerCase();
                 
-                let isAuthorized = false;
-                if(authUser.role === "admin") isAuthorized = true;
-                else if(authUser.role === "dental" && serviceType.includes("dental")) isAuthorized = true;
-                else if(authUser.role === "medical" && serviceType.includes("medical")) isAuthorized = true;
-                if(data.assignedTo === authUser.empId) isAuthorized = true;
+                // Visibility Rules:
+                // 1. Admin sees everything.
+                // 2. Doctor sees if in their dept OR if they were the "TransferredBy" doctor (their history).
+                // 3. Doctor sees if they are the current "AssignedTo" person.
+                let isAuthorized = isAdmin || 
+                    (data.assignedTo === authUser.empId) || 
+                    (data.transferredBy === authUser.empId) ||
+                    ( (!data.assignedTo) && (authUser.role === "dental" && serviceType.includes("dental")) ) ||
+                    ( (!data.assignedTo) && (authUser.role === "medical" && serviceType.includes("medical")) );
 
                 if(!isAuthorized) return;
 
+                // Edit Logic: Only the person currently assigned can click the button.
+                let canEdit = (data.assignedTo === authUser.empId) || (!data.assignedTo && !isAdmin && !isDone);
+                if (data.status === "completed") canEdit = false;
+
                 const isDone = data.status === "completed";
-                const isTransferred = data.status === "transferred";
+                const wasHandedByMe = data.transferredBy === authUser.empId;
                 if(!isDone) pendingCount++;
 
+                if(!data.patientSerialId && !isDone) assignPatientId(docSnap.id, data.service);
+
                 const card = document.createElement("div");
-                card.className = `glass-card p-6 rounded-2xl flex flex-col justify-between ${isDone ? 'opacity-50 grayscale' : ''}`;
+                card.className = `glass-card p-5 rounded-2xl flex flex-col justify-between ${canEdit ? 'active-card' : 'history-card'}`;
 
                 card.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start mb-4">
-                            <span class="status-badge ${isDone ? 'bg-green-100 text-green-700' : (isTransferred ? 'bg-orange-100 text-orange-700' : 'bg-amber-100 text-amber-700')}">
-                                ${data.status || 'In Queue'}
+                            <span class="status-badge ${isDone ? 'bg-green-100 text-green-700' : (wasHandedByMe ? 'bg-slate-100 text-slate-500' : 'bg-blue-100 text-blue-700')}">
+                                ${isDone ? 'Completed' : (wasHandedByMe ? 'Handed Over' : 'Active Queue')}
                             </span>
-                            <span class="text-[9px] text-slate-400 font-mono">ID: ${docSnap.id.slice(-6)}</span>
+                            <span class="text-[10px] font-black text-slate-800 bg-white border px-2 py-1 rounded shadow-sm">${data.patientSerialId || 'PENDING'}</span>
                         </div>
-                        <h3 class="text-xl font-bold text-slate-800 mb-1">${data.name || data.patientName}</h3>
-                        <p class="text-blue-600 text-[10px] font-bold uppercase tracking-widest mb-4">${data.service}</p>
-                        
-                        <div class="space-y-2 text-sm text-slate-500 mb-4">
-                            <div class="flex items-center gap-2"><span>📅</span><span>${data.date} • ${data.time}</span></div>
+
+                        <div class="mb-4">
+                            <h3 class="text-lg font-bold text-slate-800">${data.name || data.patientName}</h3>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase">${data.gender || 'N/A'} • Age: ${data.age || 'N/A'} • ${data.phone || 'No Contact'}</p>
                         </div>
-                        
-                        ${data.notes ? `<div class="p-3 bg-slate-50 rounded-lg text-xs text-slate-600 border-l-4 border-slate-300 mb-2 italic">"${data.notes}"</div>` : ''}
-                        ${data.clinicalNotes ? `<div class="p-3 bg-blue-50 rounded-lg text-[11px] text-blue-800 border-l-4 border-blue-400 font-medium">Record: ${data.clinicalNotes}</div>` : ''}
-                        ${data.assignedTo ? `<div class="mt-2 text-[10px] text-orange-600 font-bold uppercase">Assigned To ID: ${data.assignedTo}</div>` : ''}
+
+                        <div class="space-y-3">
+                            <p class="text-[9px] font-bold text-slate-400 uppercase">Doctor Note History</p>
+                            <div class="clinical-thread text-[11px] text-slate-600 italic">
+                                ${data.clinicalNotes ? data.clinicalNotes : 'Awaiting consultation...'}
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                        ${isDone 
-                            ? `<span class="text-[10px] font-bold text-slate-400 uppercase">Consulted by: ${data.doctorName}</span>` 
-                            : (authUser.role === "admin" 
-                                ? `<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Record View</span>` 
-                                : `<button onclick="openModal('${docSnap.id}', '${data.bookingId}', '${data.name}')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:shadow-lg transition-all">Action</button>`
-                              )
+                    <div class="mt-6 pt-4 border-t border-slate-100">
+                        ${isAdmin ? 
+                            `<div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-400">ADMIN VIEW</span><button onclick="confirmDelete('${docSnap.id}')" class="text-red-300 text-xs hover:text-red-500">Remove</button></div>` : 
+                            (canEdit ? 
+                                `<button onclick="openModal('${docSnap.id}', '${data.bookingId}', '${data.name}', '${data.patientSerialId}', '${data.clinicalNotes || ''}')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-xs hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all">OPEN CLINICAL CASE</button>` : 
+                                `<p class="text-center text-[10px] font-bold text-slate-400 py-3 bg-slate-200/50 rounded-xl uppercase tracking-widest">Locked (History Record)</p>`
+                            )
                         }
-                        
-                        ${authUser.role === "admin" ? `
-                            <button onclick="confirmDelete('${docSnap.id}')" class="ml-4 p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                            </button>
-                        ` : ''}
                     </div>
                 `;
                 listContainer.appendChild(card);
             });
-
-            document.getElementById("queueCounter").innerText = `${pendingCount} Clinical Cases`;
+            document.getElementById("queueCounter").innerText = `${pendingCount} Cases Total`;
         });
 
-        window.openModal = (id, otp, name) => {
-            activeCase = { id, otp, name };
+        window.openModal = (id, otp, name, serialId, prevNotes) => {
+            activeCase = { id, otp, name, serialId, prevNotes };
             document.getElementById("modal").classList.remove("hidden");
             document.getElementById("modalPatientName").innerText = name;
-            toggleActionFields();
+            document.getElementById("modalPatientID").innerText = serialId;
+            const prevContainer = document.getElementById("previousNotesContainer");
+            if(prevNotes) {
+                prevContainer.classList.remove("hidden");
+                document.getElementById("prevNotesText").innerText = prevNotes;
+            } else { prevContainer.classList.add("hidden"); }
         };
 
         window.closeModal = () => {
             document.getElementById("modal").classList.add("hidden");
-            ["otp", "docId", "patientCondition", "targetDocId", "newDate", "newTime"].forEach(id => {
-                const el = document.getElementById(id); if(el) el.value = "";
-            });
+            ["otp", "docId", "patientCondition", "targetDocId"].forEach(id => document.getElementById(id).value = "");
         };
 
         window.toggleActionFields = () => {
-            const action = document.getElementById("actionType").value;
-            document.getElementById("transferField").classList.toggle("hidden", action !== "transfer");
-            document.getElementById("rescheduleField").classList.toggle("hidden", action !== "reschedule");
+            document.getElementById("transferField").classList.toggle("hidden", document.getElementById("actionType").value !== "transfer");
         };
 
         window.processClinicalAction = async () => {
             const action = document.getElementById("actionType").value;
-            const note = document.getElementById("patientCondition").value;
+            const newNote = document.getElementById("patientCondition").value;
             const enteredOtp = document.getElementById("otp").value;
             const enteredId = document.getElementById("docId").value;
             const btn = document.getElementById("confirmBtn");
 
-            if(!note.trim()) return alert("⚠️ Notes are mandatory.");
-            if(enteredOtp !== activeCase.otp) return alert("❌ OTP Failed.");
-            if(enteredId !== authUser.empId) return alert("❌ PIN Failed.");
+            if(!newNote.trim()) return alert("⚠️ Please enter treatment notes.");
+            if(enteredOtp !== activeCase.otp) return alert("❌ OTP Mismatch.");
+            if(enteredId !== authUser.empId) return alert("❌ Employee PIN Error.");
 
             try {
-                btn.innerText = "Processing...";
+                btn.innerText = "Saving Clinical Data...";
                 btn.disabled = true;
-                const docRef = doc(db, "appointments", activeCase.id);
-                let updateData = { clinicalNotes: note, lastUpdatedBy: authUser.name, updatedAt: new Date().toISOString() };
+                const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const formattedEntry = `[${timestamp} | Dr. ${authUser.name}]: ${newNote}`;
+                const fullClinicalRecord = activeCase.prevNotes ? `${activeCase.prevNotes}\n${formattedEntry}` : formattedEntry;
+
+                let updateData = { clinicalNotes: fullClinicalRecord, lastUpdatedBy: authUser.name, updatedAt: new Date().toISOString() };
 
                 if (action === "complete") {
                     updateData.status = "completed";
                     updateData.doctorName = authUser.name;
                     updateData.doctorId = authUser.empId;
+                    updateData.assignedTo = null;
                 } else if (action === "transfer") {
                     const targetId = document.getElementById("targetDocId").value;
-                    if(!targetId.trim()) throw new Error("ID required.");
+                    if(!targetId.trim()) throw new Error("Target Doctor ID Required.");
                     updateData.status = "transferred";
                     updateData.assignedTo = targetId.trim();
-                } else if (action === "reschedule") {
-                    const nDate = document.getElementById("newDate").value;
-                    const nTime = document.getElementById("newTime").value;
-                    if(!nDate || !nTime) throw new Error("Select time.");
-                    updateData.date = nDate; updateData.time = nTime; updateData.status = "rescheduled";
+                    updateData.transferredBy = authUser.empId;
                 }
-
-                await updateDoc(docRef, updateData);
+                await updateDoc(doc(db, "appointments", activeCase.id), updateData);
                 closeModal();
-            } catch (err) {
-                alert(err.message);
-            } finally {
-                btn.innerText = "Process Action"; btn.disabled = false;
-            }
+            } catch (err) { alert(err.message); } 
+            finally { btn.innerText = "Process Case"; btn.disabled = false; }
         };
 
-        window.confirmDelete = (id) => {
-            if(confirm("Permanently delete record?")) deleteDoc(doc(db, "appointments", id));
-        };
+        window.confirmDelete = (id) => { if(confirm("Permanently delete?")) deleteDoc(doc(db, "appointments", id)); };
     </script>
 </body>
 </html>
+
 
