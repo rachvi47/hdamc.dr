@@ -1,151 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HDAMC | Create Account</title>
-
-<style>
-:root {
-  --primary-color: #2563eb;
-  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-}
-body {
-  font-family: Arial;
-  background: var(--bg-gradient);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.register-card {
-  background:white;
-  padding:25px;
-  border-radius:10px;
-  width:350px;
-  text-align:center;
-}
-input, select, button {
-  width:100%;
-  padding:10px;
-  margin-top:10px;
-}
-button {
-  background:#2563eb;
-  color:white;
-  border:none;
-  cursor:pointer;
-}
-button:disabled {
-  background:#94a3b8;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDAMC | Staff Onboarding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { background: #f8fafc; font-family: 'Inter', sans-serif; }
+        .reg-card { background: white; border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        input, select { border: 1.5px solid #e2e8f0; transition: all 0.2s; }
+        input:focus, select:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+        .badge-fixed { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; }
+    </style>
 </head>
+<body class="flex items-center justify-center min-h-screen p-4">
 
-<body>
+<div class="reg-card w-full max-w-md p-8">
+    <div class="text-center mb-8">
+        <h2 class="text-2xl font-bold text-slate-800">New Practitioner</h2>
+        <p class="text-sm text-slate-500">Allocate system credentials</p>
+    </div>
 
-<div class="register-card">
-  <h2>Create Staff Account</h2>
+    <form id="regForm" class="space-y-5">
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Assign Department</label>
+            <select id="role" class="w-full mt-1 p-3 rounded-xl bg-slate-50 font-semibold text-slate-700" required>
+                <option value="">Select Role...</option>
+                <option value="medical">Medical Department</option>
+                <option value="dental">Dental Department</option>
+                <option value="admin">Administration</option>
+            </select>
+        </div>
 
-  <input type="text" id="name" placeholder="Employee Name">
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">System Generated ID</label>
+            <div class="flex gap-2">
+                <input type="text" id="empId" class="w-full p-3 rounded-xl bg-slate-100 font-mono text-blue-600 font-bold" placeholder="Auto-generating..." readonly>
+                <button type="button" id="refreshId" class="p-3 bg-slate-200 rounded-xl hover:bg-slate-300" title="Refresh sequence">🔄</button>
+            </div>
+        </div>
 
-  <select id="role">
-    <option value="admin">Administrator</option>
-    <option value="medical">Medical Doctor</option>
-    <option value="dental">Dental Doctor</option>
-  </select>
+        <div>
+            <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Practitioner Full Name</label>
+            <input type="text" id="fullname" class="w-full mt-1 p-3 rounded-xl" placeholder="Dr. John Doe" required>
+        </div>
 
-  <button id="regBtn">Create Employee</button>
+        <div>
+            <div class="flex justify-between items-center ml-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Default Password</label>
+                <span class="badge-fixed uppercase">System Standard</span>
+            </div>
+            <input type="text" id="password" class="w-full mt-1 p-3 rounded-xl bg-slate-50 font-mono font-bold text-slate-600" value="1234" readonly>
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-100 transition-all mt-4">
+            Complete Registration
+        </button>
+    </form>
+    
+    <div class="mt-6 text-center">
+        <a href="use.html" class="text-sm text-slate-400 hover:text-slate-600 font-medium italic">Return to User Management</a>
+    </div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  runTransaction 
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    const firebaseConfig = {  
+        apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",  
+        authDomain: "clinical-570e7.firebaseapp.com",  
+        projectId: "clinical-570e7",  
+        storageBucket: "clinical-570e7.firebasestorage.app",  
+        messagingSenderId: "521811871855",  
+        appId: "1:521811871855:web:02ec35c3fd299db6e2659a",  
+        measurementId: "G-DBRPR7MXT4"  
+    };  
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",
-  authDomain: "clinical-570e7.firebaseapp.com",
-  projectId: "clinical-570e7",
-  storageBucket: "clinical-570e7.firebasestorage.app",
-  messagingSenderId: "521811871855",
-  appId: "1:521811871855:web:02ec35c3fd299db6e2659a",
-  measurementId: "G-DBRPR7MXT4"
-};
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    // 🔐 Admin Security Check
+    const authData = JSON.parse(localStorage.getItem("hdamc_auth"));
+    if (!authData || authData.role !== "admin") {
+        alert("Unauthorized Access.");
+        window.location.href = "dashboard.html";
+    }
 
-const regBtn = document.getElementById("regBtn");
+    const roleSelect = document.getElementById("role");
+    const idInput = document.getElementById("empId");
+    const refreshBtn = document.getElementById("refreshId");
 
-function formatId(num) {
-  return num.toString().padStart(6, '0');
-}
+    // Automatically trigger ID generation on role change
+    roleSelect.onchange = updateId;
+    refreshBtn.onclick = updateId;
 
-regBtn.addEventListener("click", async () => {
+    async function updateId() {
+        if(!roleSelect.value) return;
+        idInput.placeholder = "Generating ID...";
+        const nextId = await generateNextId(roleSelect.value);
+        idInput.value = nextId;
+    }
 
-  const name = document.getElementById("name").value.trim();
-  const role = document.getElementById("role").value;
+    async function generateNextId(role) {
+        try {
+            const snap = await getDocs(collection(db, "users"));
+            let ids = [];
+            
+            snap.forEach(d => {
+                const parts = d.id.split('-');
+                if(parts.length > 1) {
+                    const num = parseInt(parts[1]);
+                    if(!isNaN(num)) ids.push(num);
+                }
+            });
 
-  if (!name) {
-    alert("Enter employee name");
-    return;
-  }
+            ids.sort((a,b) => a-b);
 
-  regBtn.innerText = "Creating...";
-  regBtn.disabled = true;
+            let nextNum = 1001; // Start sequence
+            for(let n of ids) {
+                if(n === nextNum) nextNum++;
+                else if(n > nextNum) break; // Gap found, reuse the number
+            }
+            
+            const pref = role === 'admin' ? 'ADM' : (role === 'dental' ? 'DNT' : 'MED');
+            return `${pref}-${nextNum}`;
+        } catch (err) {
+            console.error(err);
+            return "ID-ERROR";
+        }
+    }
 
-  try {
+    document.getElementById("regForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById("submitBtn");
+        const id = idInput.value;
+        const name = document.getElementById("fullname").value;
+        const password = document.getElementById("password").value;
 
-    const newId = await runTransaction(db, async (transaction) => {
-      const counterRef = doc(db, "counters", "employee");
-      const counterDoc = await transaction.get(counterRef);
+        if(!id) {
+            alert("Please wait for the ID to generate.");
+            return;
+        }
 
-      let currentId = 0;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Registering...";
 
-      if (!counterDoc.exists()) {
-        currentId = 1;
-        transaction.set(counterRef, { lastId: 1 });
-      } else {
-        currentId = counterDoc.data().lastId + 1;
-        transaction.update(counterRef, { lastId: currentId });
-      }
-
-      return currentId;
-    });
-
-    const empId = formatId(newId);
-
-    // 🔥 SAVE USER
-    await setDoc(doc(db, "users", empId), {
-      name: name,
-      empId: empId,
-      role: role,
-      password: "1234", // ✅ DEFAULT PASSWORD
-      createdAt: new Date().toISOString()
-    });
-
-    alert(`✅ Employee Created
-Name: ${name}
-ID: ${empId}
-Password: 1234`);
-
-    document.getElementById("name").value = "";
-
-  } catch (e) {
-    console.error(e);
-    alert("Error: " + e.message);
-  }
-
-  regBtn.innerText = "Create Employee";
-  regBtn.disabled = false;
-});
+        try {
+            await setDoc(doc(db, "users", id), {
+                name: name,
+                role: roleSelect.value,
+                password: password, // This will always be "1234"
+                activeSession: ""
+            });
+            
+            alert(`✅ Registration Complete!\n\nID: ${id}\nName: ${name}\nTemp Password: ${password}`);
+            window.location.href = "use.html";
+        } catch (err) {
+            alert("Error: " + err.message);
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Complete Registration";
+        }
+    };
 </script>
-
 </body>
 </html>
