@@ -1,144 +1,212 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Appointments Panel</title>
-<style>
-  /* ... [Your existing styles] ... */
-  *{ margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', sans-serif; }
-  body{ background:linear-gradient(135deg,#0f172a,#1e293b); min-height: 100vh; }
-  .container{ max-width:1150px; margin:40px auto; background:white; padding:25px; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.2); }
-  .header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-  h2{ color:#0f172a; }
-  .back{ background:#3b82f6; color:white; padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
-  table{ width:100%; border-collapse:collapse; border-radius:10px; overflow:hidden; }
-  th{ background:#3b82f6; color:white; }
-  th,td{ padding:12px; text-align:center; border-bottom:1px solid #eee; }
-  tr:hover{ background:#f1f5f9; }
-  .done{color:green;font-weight:bold;}
-  .pending{color:orange;font-weight:bold;}
-  button{ padding:6px 12px; border:none; border-radius:6px; cursor:pointer; }
-  .delete{background:#ef4444;color:white;}
-  .complete{background:#22c55e;color:white;}
-  .complete:disabled{ background:gray; cursor:not-allowed; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDAMC | Clinical Queue Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .status-badge { padding: 2px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+        .btn-transition { transition: all 0.2s ease-in-out; }
+        .btn-transition:hover { transform: translateY(-1px); }
+    </style>
 </head>
-<body>
-<div class="container">
-  <div class="header">
-    <h2>Appointments</h2>
-    <button class="back" onclick="window.location.href='dashboard.html'">Dashboard</button>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Age</th> <th>Gender</th> <th>Phone</th>
-        <th>Service</th>
-        <th>Date</th>
-        <th>Time</th>
-        <th>Status</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="data"></tbody>
-  </table>
-</div>
+<body class="antialiased">
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    <header class="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-700 tracking-tight">Clinical Queue</h1>
+                <p class="text-xs text-slate-500 uppercase tracking-widest font-semibold">HDAMC || Center</p>
+            </div>
+            <button onclick="location.href='dashboard.html'" class="btn-transition bg-slate-900 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm hover:bg-slate-800">
+                ← Dashboard
+            </button>
+        </div>
+    </header>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk",
-  authDomain: "clinical-570e7.firebaseapp.com",
-  projectId: "clinical-570e7",
-  storageBucket: "clinical-570e7.appspot.com",
-  messagingSenderId: "521811871855",
-  appId: "1:521811871855:web:02ec35c3fd299db6e2659a"
-};
+    <main class="max-w-6xl mx-auto p-4 md:p-6">
+        <div class="mb-6 flex flex-wrap gap-4 items-center justify-between">
+            <h2 id="queueCounter" class="text-slate-600 font-medium text-lg">Loading cases...</h2>
+        </div>
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const user = JSON.parse(localStorage.getItem("user"));
+        <div id="list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="h-48 bg-slate-200 animate-pulse rounded-xl"></div>
+            <div class="h-48 bg-slate-200 animate-pulse rounded-xl"></div>
+        </div>
+    </main>
 
-if (!user) {
-  alert("Login required");
-  window.location.href = "index.html";
-}
+    <div id="modal" class="fixed inset-0 bg-slate-900/60 hidden backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-xl font-bold">Verify Completion</h2>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+                </div>
+                <p class="text-sm text-slate-500 mb-6">Confirm treatment for <span id="modalPatientName" class="font-bold text-blue-600"></span></p>
 
-const tableBody = document.getElementById("data");
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Patient Condition / Notes</label>
+                        <textarea id="patientCondition" rows="3" placeholder="Describe findings..." class="w-full border border-slate-200 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"></textarea>
+                    </div>
 
-function canView(service) {
-  if (!service) return false;
-  let s = service.toLowerCase();
-  if (user.role === "admin") return true;
-  if (user.role === "dental") return s.includes("dental") || s.includes("general");
-  if (user.role === "medical") return s.includes("health") || s.includes("medical") || s.includes("general");
-  return false;
-}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Case OTP</label>
+                            <input id="otp" type="text" placeholder="OTP" class="w-full border border-slate-200 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Employee ID</label>
+                            <input id="docId" type="password" placeholder="Verify ID" class="w-full border border-slate-200 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-4 flex gap-3">
+                <button onclick="closeModal()" class="flex-1 px-4 py-2 text-slate-600 font-medium">Cancel</button>
+                <button id="confirmBtn" onclick="verify()" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:bg-blue-700">Confirm Case</button>
+            </div>
+        </div>
+    </div>
 
-onSnapshot(collection(db, "appointments"), (snapshot) => {
-  tableBody.innerHTML = "";
-  let list = [];
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  snapshot.forEach((docSnap) => {
-    const d = docSnap.data();
-    if (!canView(d.service)) return;
-    list.push({ id: docSnap.id, ...d });
-  });
-
-  list.sort((a, b) => {
-    const aStatus = a.status === "completed" ? 1 : 0;
-    const bStatus = b.status === "completed" ? 1 : 0;
-    if (aStatus !== bStatus) return aStatus - bStatus;
-    return (a.time || "").localeCompare(b.time || "");
-  });
-
-  list.forEach((d) => {
-    const status = d.status || "pending";
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td>${d.name || "-"}</td>
-      <td>${d.age || "-"}</td> 
-      <td>${d.gender || "-"}</td>
-      <td>${d.phone || "-"}</td>
-      <td>${d.service || "-"}</td>
-      <td>${d.date || "-"}</td>
-      <td>${d.time || "-"}</td>
-      <td class="${status === "completed" ? "done" : "pending"}">
-        ${status === "completed" ? "Completed ✔" : "Pending"}
-      </td>
-      <td>
-        ${
-          user.role === "admin"
-            ? `<button class="delete">Delete</button>`
-            : (user.role === "dental" || user.role === "medical")
-            ? `<button class="complete" ${status === "completed" ? "disabled" : ""}>✔ Done</button>`
-            : "-"
-        }
-      </td>
-    `;
-
-    // Handle Delete
-    if (user.role === "admin") {
-      tr.querySelector(".delete").onclick = async () => {
-        if (confirm("Delete this appointment?")) await deleteDoc(doc(db, "appointments", d.id));
-      };
-    }
-
-    // Handle Complete
-    if (user.role === "dental" || user.role === "medical") {
-      const btn = tr.querySelector(".complete");
-      if (btn) {
-        btn.onclick = async () => {
-          await updateDoc(doc(db, "appointments", d.id), { status: "completed" });
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAnvpgtFnBRXYApmnnb4yoYQqHqcgnhsk", 
+            authDomain: "clinical-570e7.firebaseapp.com",
+            projectId: "clinical-570e7"
         };
-      }
-    }
-    tableBody.appendChild(tr);
-  });
-});
-</script>
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const authUser = JSON.parse(localStorage.getItem("hdamc_auth"));
+        if(!authUser) window.location.href="login.html";
+
+        let activeCase = null;
+        const listContainer = document.getElementById("list");
+
+        const q = query(collection(db, "appointments"), orderBy("date", "desc"));
+        onSnapshot(q, (snap) => {
+            listContainer.innerHTML = "";
+            let pendingCount = 0;
+
+            snap.forEach(docSnap => {
+                const data = docSnap.data();
+                const serviceType = (data.service || "").toLowerCase();
+                
+                // 🔐 ROLE-BASED FILTERING
+                let isAuthorized = false;
+                if(authUser.role === "admin") isAuthorized = true; // Admins see everything
+                else if(authUser.role === "dental" && serviceType.includes("dental")) isAuthorized = true;
+                else if(authUser.role === "medical" && serviceType.includes("medical")) isAuthorized = true;
+
+                if(!isAuthorized) return; // Skip if not authorized for this service
+
+                const isDone = data.status === "completed";
+                if(!isDone) pendingCount++;
+
+                const card = document.createElement("div");
+                card.className = `glass-card p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between ${isDone ? 'opacity-60' : ''}`;
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="status-badge ${isDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                                ${isDone ? '● Completed' : '● In Queue'}
+                            </span>
+                            <span class="text-[10px] text-slate-400 font-mono">${docSnap.id.slice(0,8)}</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 leading-tight">${data.name || data.patientName}</h3>
+                        <p class="text-blue-600 text-sm font-medium mb-4 uppercase tracking-wide">${data.service}</p>
+                        
+                        <div class="space-y-2 text-sm text-slate-600">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>${data.date} • ${data.time}</span>
+                            </div>
+                        </div>
+                        
+                        ${data.notes ? `<div class="mt-4 p-2 bg-slate-50 rounded text-xs text-slate-500 italic"><b>Booking:</b> "${data.notes}"</div>` : ''}
+                        ${data.clinicalNotes ? `<div class="mt-2 p-2 bg-blue-50 border border-blue-100 rounded text-xs text-blue-800"><b>Clinical:</b> ${data.clinicalNotes}</div>` : ''}
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                        ${isDone 
+                            ? `<span class="text-xs font-semibold text-slate-500 uppercase">Doctor: ${data.doctorName}</span>` 
+                            : (authUser.role === "admin" 
+                                ? `<span class="text-xs font-bold text-slate-400 uppercase">View Only</span>` 
+                                : `<button onclick="openModal('${docSnap.id}', '${data.bookingId}', '${data.name}')" class="w-full bg-blue-50 text-blue-700 py-2 rounded-lg font-bold hover:bg-blue-600 hover:text-white transition-colors">Verify & Close</button>`
+                              )
+                        }
+                        
+                        ${authUser.role === "admin" ? `
+                            <button onclick="confirmDelete('${docSnap.id}')" class="ml-2 p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+
+            document.getElementById("queueCounter").innerText = `${pendingCount} ${authUser.role.toUpperCase()} Cases in Queue`;
+        });
+
+        // MODAL & VERIFY LOGIC
+        window.openModal = (id, otp, name) => {
+            activeCase = { id, otp, name };
+            document.getElementById("modal").classList.remove("hidden");
+            document.getElementById("modal").classList.add("flex");
+            document.getElementById("modalPatientName").innerText = name;
+        };
+
+        window.closeModal = () => {
+            document.getElementById("modal").classList.add("hidden");
+            document.getElementById("modal").classList.remove("flex");
+            document.getElementById("otp").value = "";
+            document.getElementById("docId").value = "";
+            document.getElementById("patientCondition").value = "";
+        };
+
+        window.verify = async () => {
+            const enteredOtp = document.getElementById("otp").value;
+            const enteredId = document.getElementById("docId").value;
+            const note = document.getElementById("patientCondition").value;
+            const btn = document.getElementById("confirmBtn");
+
+            if(!note.trim()) return alert("⚠️ Clinical findings are required.");
+            if(enteredOtp !== activeCase.otp) return alert("❌ OTP Error");
+            if(enteredId !== authUser.empId) return alert("❌ ID Error");
+
+            try {
+                btn.innerText = "Closing...";
+                btn.disabled = true;
+                await updateDoc(doc(db, "appointments", activeCase.id), {
+                    doctorId: authUser.empId,
+                    doctorName: authUser.name,
+                    status: "completed",
+                    clinicalNotes: note,
+                    closedAt: new Date().toISOString()
+                });
+                closeModal();
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                btn.innerText = "Confirm Case";
+                btn.disabled = false;
+            }
+        };
+
+        window.confirmDelete = (id) => {
+            if(confirm("Permanently delete this record?")) deleteDoc(doc(db, "appointments", id));
+        };
+    </script>
 </body>
 </html>
